@@ -275,6 +275,7 @@ function renderProfile() {
       <button class="button ghost" data-action="profile-back" ${state.profileStep === 0 ? "disabled" : ""}>上一步</button>
       <button class="button primary" data-action="profile-next" ${selected ? "" : "disabled"}>${state.profileStep === profileQuestions.length - 1 ? "查看候选" : "下一步"}</button>
     </div>
+    ${profileInsight()}
     <p class="footer-note">请按当前真实生活填写，而不是按“如果养狗我会努力”填写。</p>
   `;
 }
@@ -314,6 +315,55 @@ function candidateReasons(candidate) {
   return reasons.slice(0, 3);
 }
 
+function aiCard(title, body) {
+  return `<section class="card ai-card">
+    <div class="card-title">${title}</div>
+    <p class="small">${body}</p>
+  </section>`;
+}
+
+function profileInsight() {
+  const answered = Object.keys(state.profile).length;
+  if (!answered) return "";
+  const profile = state.profile;
+  const time = Number(profile.weekdayTime || 0);
+  const activity = Number(profile.activity || 0);
+  const budget = Number(profile.budget || 0);
+  const patience = Number(profile.patience || 0);
+  if (profile.housing === "not-allowed") {
+    return aiCard("AI 陪练 · 先解决硬性条件", "你目前的居住条件不允许养狗。这不是态度问题，而是能否长期稳定生活的问题。我们不会继续推你做选择，先看看有什么替代方案。");
+  }
+  if (profile.household === "object") {
+    return aiCard("AI 陪练 · 同住者张力", "家里有人明确反对养狗。共同生活空间的决定，需要一起形成可执行的规则。建议先把顾虑写清楚，而不是用喜欢去说服。");
+  }
+  if (profile.allergy === "serious") {
+    return aiCard("AI 陪练 · 健康优先", "家里有明确严重过敏。这类情况不适合通过虚拟喂养来试，需要先咨询专业意见。");
+  }
+  if (activity <= 1 && time >= 120) {
+    return aiCard("AI 陪练 · 需要确认", "你愿意投入时间，但运动习惯较弱。重点是：这些时间能否稳定用于外出，而不是留在家里陪伴。");
+  }
+  if (patience >= 3 && time <= 60) {
+    return aiCard("AI 陪练 · 时间张力", "你愿意训练和清理，但工作日时间偏紧。我们会在后面重点看：你能否在疲惫时仍然坚持核心照护。");
+  }
+  if (budget < 900) {
+    return aiCard("AI 陪练 · 预算压力", "你的稳定预算偏低。养狗不只是食品用品，还包含体检、疫苗、驱虫和突发医疗。建议先准备 3 个月应急医疗预算。");
+  }
+  if (activity >= 3 && time <= 60) {
+    return aiCard("AI 陪练 · 生活节奏冲突", "你自己运动较多，但工作日能分给狗的时间偏少。我们会在候选匹配时特别关注这一点。");
+  }
+  return aiCard("AI 陪练 · 档案确认", "你的回答没有明显冲突。接下来我们不会只给你一个分数，而是把这些信息变成可验证的照护任务。");
+}
+
+function matchInsight(ranked, blockers) {
+  if (blockers.length) {
+    return aiCard("AI 陪练 · 匹配前的提醒", "我先暂停推荐。有硬性条件没有满足时，候选犬型只是信息，不是行动建议。");
+  }
+  const best = ranked[0];
+  const second = ranked[1];
+  if (!second) return "";
+  return aiCard("AI 陪练 · 匹配解读", `我更倾向 ${best.name}，因为它的活动、训练和预算节奏更贴近你的生活。${second.name} 可以作为观察对象，但请在体验中特别留意它最容易造成负担的地方。`);
+}
+
 function renderMatch() {
   const blockers = hardBlockers();
   const ranked = [...candidates].sort((a, b) => matchCandidate(b) - matchCandidate(a));
@@ -328,6 +378,7 @@ function renderMatch() {
       <ul class="evidence">${blockers.map((item) => `<li>${item}</li>`).join("")}</ul>
       <p class="small" style="margin-top:9px">你仍可体验流程，但报告会建议暂缓养狗，直到这些问题解决。</p>
     </section>` : ""}
+    ${matchInsight(ranked, blockers)}
     ${ranked
       .map((candidate, index) => {
         const score = matchCandidate(candidate);
@@ -371,6 +422,20 @@ function getDailyTasks() {
   if (day === 4) tasks.push({ id: "walk-pm", type: "walk", planned: Math.round(24 * factor), title: "加班后的晚间外出" });
   if (day === 11) tasks.push({ id: "care-plan", type: "company", planned: 20, title: "出差照护方案" });
   return tasks;
+}
+
+function homeInsight() {
+  const meters = state.meters;
+  const low = Object.entries(meters).filter(([key, value]) => value < 40);
+  if (low.length) {
+    const labelMap = { food: "饮食", activity: "活动", happiness: "心情", clean: "环境" };
+    const labels = low.map(([key]) => labelMap[key]).join("、");
+    return aiCard("AI 陪练 · 现在优先", `${labels} 接近警戒线。先不用完成所有任务，恢复它的基础状态更重要。`);
+  }
+  if (state.day === 4 || state.day === 7 || state.day === 11) {
+    return aiCard("AI 陪练 · 今天有点不同", "今天加入了新的观察点。请多留意自己真实的反应，而不是只完成任务。");
+  }
+  return "";
 }
 
 function currentLogs() {
@@ -419,6 +484,7 @@ function renderHome() {
         ${meter("环境", state.meters.clean)}
       </div>
     </section>
+    ${homeInsight()}
     <section class="card">
       <h3>快速照护</h3>
       <div class="quick-actions" style="margin-top:12px">
@@ -451,6 +517,7 @@ function renderToday() {
       <p class="small">完成任务时请记录真实用时和感受。自报数据不会被当成客观事实，只用于发现模式。</p>
       <div class="progress-track" style="margin-top:14px"><div class="progress-fill" style="width:${Math.round((done / tasks.length) * 100)}%"></div></div>
     </section>
+    ${dailyInsight(tasks)}
     ${tasks.map((task) => renderTask(task, logs[task.id])).join("")}
     <div class="task-actions">
       <button class="button ghost" data-action="show-review">阶段复盘</button>
@@ -522,6 +589,31 @@ function dayNote(day) {
   return "照护、记录与调整";
 }
 
+function dailyInsight(tasks) {
+  const undone = tasks.filter((task) => taskStatus(task.id) === "todo");
+  const lowMeters = Object.entries(state.meters).filter(([key, value]) => value < 40);
+  const day = state.day;
+  if (day === 4) {
+    return aiCard("AI 陪练 · 今天观察什么", "今天多了一项晚间外出。它不是惩罚，而是检验你忙碌时的真实节奏。请留意你会把它放在哪个位置。");
+  }
+  if (day === 7) {
+    return aiCard("AI 陪练 · 第一周复盘", "今天不是继续叠加任务，而是看哪些负担反复出现。复盘后可以调整时间或换候选。");
+  }
+  if (day === 11) {
+    return aiCard("AI 陪练 · 支持系统", "今天要检查的不是你愿意付出多少，而是当你不在时，是否有人或服务能接住它。");
+  }
+  if (!undone.length) {
+    return aiCard("AI 陪练 · 今日收束", "今天核心照护已记录。请再看一下实际用时和感受，然后就可以结束今天。");
+  }
+  if (lowMeters.length) {
+    const labelMap = { food: "饮食", activity: "活动", happiness: "心情", clean: "环境" };
+    const labels = lowMeters.map(([key]) => labelMap[key]).join("、");
+    return aiCard("AI 陪练 · 优先处理", `今天先不要追全部任务。${labels} 低于安全线，建议从最容易恢复状态的一项开始。`);
+  }
+  const first = undone[0];
+  return aiCard("AI 陪练 · 今日重点", `先完成 ${first.title}。不要把它当成打卡，而是观察这个时段是否真的适合安排。`);
+}
+
 function analysis() {
   const allLogs = Object.values(state.logs).flatMap((dayLogs) => Object.values(dayLogs));
   const done = allLogs.filter((log) => log.status === "done");
@@ -549,6 +641,7 @@ function renderReport() {
     <section class="card">
       <span class="report-badge ${recommendPause ? "warn" : ""}">${recommendPause ? "建议暂缓" : changeCandidate ? "建议换犬型" : "值得进一步接触"}</span>
       <p class="lead">${reportHeadline(result, recommendPause, changeCandidate)}</p>
+      ${reportInsight(result, recommendPause, changeCandidate)}
       <ul class="evidence" style="margin-top:13px">
         <li>已记录 ${result.allLogs.length} 项，完成 ${result.done.length} 项，未完成 ${result.missed.length} 项。</li>
         <li>完成项平均用时约 ${result.averageMinutes} 分钟。</li>
@@ -589,6 +682,19 @@ function reportAdvice(result, pause, change) {
   if (result.averageMinutes > Number(state.profile.weekdayTime || 0)) advice.push("实际用时高于你的时间预算，需要压缩照护强度或寻求支持。");
   advice.push("准备至少 3 个月应急医疗预算，并确认可就诊的动物医院。");
   return advice;
+}
+
+function reportInsight(result, pause, change) {
+  if (pause) {
+    return aiCard("AI 陪练 · 报告解读", "我不会继续推动你做选择。现在的问题是条件，不是热情。虚拟喂养只能帮你更清楚地看到代价。");
+  }
+  if (change) {
+    return aiCard("AI 陪练 · 报告解读", `${result.best.name} 的节奏可能更贴合你的生活。这不是失败，而是预养帮你发现了更现实的匹配。`);
+  }
+  if (result.hard.length >= 5) {
+    return aiCard("AI 陪练 · 报告解读", "你完成了不少任务，但吃力次数偏高。请优先判断这些负担是体力、时间、情绪还是费用问题。");
+  }
+  return aiCard("AI 陪练 · 报告解读", "目前的数据支持你继续了解这类狗。但请记住，个体差异仍然很大，最终要看真实接触。");
 }
 
 function startGame(dogId) {
@@ -704,6 +810,7 @@ function showReview(advanceAfterClose = false) {
     <p class="eyebrow">Day 7 Review</p>
     <h3 id="modal-title">第一周复盘</h3>
     <p class="small">这一步不是打分，而是找重复出现的问题。</p>
+    ${aiCard("AI 陪练 · 复盘视角", result.hard.length >= 3 ? "你的吃力记录已经成模式。先把最重复的那个时段找出来，再决定是调整时间还是换候选。" : "目前负担还可控。请继续观察第二周，重点看第一周的问题是否真的被解决。")}
     <ul class="evidence" style="margin-top:12px">
       <li>完成 ${result.done.length} 项，未完成 ${result.missed.length} 项。</li>
       <li>吃力记录 ${result.hard.length} 项。</li>
@@ -720,6 +827,7 @@ function showConflictEvent() {
     <p class="eyebrow">Situation</p>
     <h3 id="modal-title">加班到九点</h3>
     <p class="small">${getDog().name} 仍在等待晚间外出。你会怎么处理？</p>
+    ${aiCard("AI 陪练 · 先做判断", "请先判断：是今天一次特殊，还是这类冲突在周中经常发生？如果是后者，调整的应该是日程，而不是意志力。")}
     <div class="stack" style="margin-top:14px">
       <button class="button block" data-event="adjust">调整时间，晚一点短距离外出</button>
       <button class="button block" data-event="helper">联系可靠帮手代遛</button>
@@ -735,6 +843,7 @@ function showTripEvent() {
     <p class="eyebrow">Situation</p>
     <h3 id="modal-title">未来三天出差</h3>
     <p class="small">请选择一个当前真的可执行的方案。</p>
+    ${aiCard("AI 陪练 · 出差前的现实检查", "不要选理想方案。请先确认：谁来接、费用多少、联系方式是否通畅、它对陌生环境是否适应。")}
     <div class="stack" style="margin-top:14px">
       <button class="button block" data-event="boarding">已确认寄养机构与费用</button>
       <button class="button block" data-event="friend">朋友可以上门照顾</button>

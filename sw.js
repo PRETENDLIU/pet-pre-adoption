@@ -1,4 +1,4 @@
-const CACHE = "pet-pre-adoption-v2";
+const CACHE = "pet-pre-adoption-v3";
 const assets = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./favicon.svg"];
 
 self.addEventListener("install", (event) => {

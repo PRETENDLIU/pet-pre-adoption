@@ -234,6 +234,32 @@ p {
   border-style: dashed;
 }
 
+.ai-card {
+  border-style: dashed;
+  border-color: rgba(22, 124, 114, 0.55);
+  background: linear-gradient(145deg, rgba(216, 240, 232, 0.9), rgba(255, 255, 255, 0.9));
+  box-shadow: 6px 6px 0 rgba(22, 124, 114, 0.12);
+}
+
+.ai-card .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-card .card-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(22, 124, 114, 0.16);
+}
+
 .row {
   display: flex;
   align-items: center;
