@@ -38,9 +38,27 @@ https://bespoke-malasada-7ff200.netlify.app
 在 Netlify 环境变量中配置：
 
 ```env
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+AI_API_KEY=你的模型 Key
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL=gpt-4o-mini
 ```
+
+也支持 GLM / Zhipu 这类 OpenAI 兼容接口。请把 `AI_BASE_URL` 和 `AI_MODEL` 改成你的平台实际提供值，例如：
+
+```env
+AI_API_KEY=你的 GLM Key
+AI_BASE_URL=https://bigmodel.io/v1
+AI_MODEL=glm-5.3
+```
+
+如果你的 Key 来自智谱国内平台，通常使用：
+
+```env
+AI_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+AI_MODEL=glm-5.3
+```
+
+请以你控制台里显示的接口地址和模型 ID 为准。
 
 未配置 API Key 时，应用仍可运行，并自动退回到本地规则建议。
 

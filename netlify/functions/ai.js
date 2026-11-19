@@ -21,7 +21,7 @@ export async function handler(event) {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
   }
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.GLM_API_KEY || process.env.ZHIPU_API_KEY;
   if (!apiKey) {
     return { statusCode: 503, body: JSON.stringify({ error: "AI 服务未配置" }) };
   }
@@ -31,8 +31,9 @@ export async function handler(event) {
     if (!task) {
       return { statusCode: 400, body: JSON.stringify({ error: "未知分析节点" }) };
     }
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const baseUrl = (process.env.AI_BASE_URL || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+    const model = process.env.AI_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -41,7 +42,6 @@ export async function handler(event) {
       body: JSON.stringify({
         model,
         temperature: 0.2,
-        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: `${task}\n\n节点：${node}\n数据：${JSON.stringify(payload)}` },
@@ -62,5 +62,15 @@ export async function handler(event) {
     };
   } catch (error) {
     return { statusCode: 500, body: JSON.stringify({ error: error.message || "服务器错误" }) };
+  }
+}
+
+function extractJson(content) {
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("模型返回内容不是有效 JSON");
+    return JSON.parse(match[0]);
   }
 }
