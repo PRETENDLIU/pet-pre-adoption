@@ -29,7 +29,7 @@ npx serve .
 
 当前已发布到 Netlify：
 
-https://verdant-biscochitos-7e32eb.netlify.app
+https://bespoke-malasada-7ff200.netlify.app
 
 ## Netlify 发布
 
