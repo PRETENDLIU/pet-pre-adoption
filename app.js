@@ -91,6 +91,8 @@ const candidates = [
     independence: 3,
     monthlyCost: 700,
     idealTime: 60,
+    image: "./images/dog-yoyo.svg",
+    aiProfile: "低活动成年犬，已过幼犬期，能适应规律独处，但仍需要稳定作息和基础清洁。",
     description: "活动量适中，已经过了幼犬最消耗人的阶段，适合第一次养狗但时间有限的人。",
   },
   {
@@ -105,6 +107,8 @@ const candidates = [
     independence: 4,
     monthlyCost: 900,
     idealTime: 90,
+    image: "./images/dog-xiaoli.svg",
+    aiProfile: "独立活跃的中型犬，运动和掉毛成本更高，需要稳定规则和耐心训练。",
     description: "更有个性和运动需求，掉毛与训练成本更高；适合作息稳定、愿意坚持规则的人。",
   },
   {
@@ -119,6 +123,8 @@ const candidates = [
     independence: 1,
     monthlyCost: 1600,
     idealTime: 150,
+    image: "./images/dog-maiya.svg",
+    aiProfile: "大型幼犬，成长期投入最大，训练、社交、活动和经济成本都高。",
     description: "成长期投入最大，训练、社交、活动和经济成本都高；适合时间充裕且有支持系统的人。",
   },
 ];
@@ -145,6 +151,7 @@ function createInitialState() {
     meters: { food: 70, activity: 70, happiness: 70, clean: 70 },
     logs: {},
     events: {},
+    ai: {},
   };
 }
 
@@ -315,11 +322,67 @@ function candidateReasons(candidate) {
   return reasons.slice(0, 3);
 }
 
-function aiCard(title, body) {
+function aiCard(title, body, node) {
+  const aiText = state.ai?.[node]?.text;
+  const display = aiText || body;
   return `<section class="card ai-card">
     <div class="card-title">${title}</div>
-    <p class="small">${body}</p>
+    <p class="small">${display}</p>
+    ${node ? `<button class="button ghost ai-button" data-ai-node="${node}">${aiText ? "重新分析" : "AI 分析"}</button>` : ""}
   </section>`;
+}
+
+async function runAiNode(node) {
+  if (!node) return;
+  const payload = buildAiPayload(node);
+  state.ai[node] = { status: "loading" };
+  render();
+  try {
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ node, payload }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.text) throw new Error(data.error || "AI 分析失败");
+    state.ai[node] = { status: "ready", text: data.text };
+  } catch (error) {
+    state.ai[node] = { status: "error", text: `AI 分析暂不可用：${error.message}` };
+  }
+  render();
+}
+
+function buildAiPayload(node) {
+  const dog = getDog();
+  if (node === "profile") {
+    return { profile: state.profile, blockers: hardBlockers() };
+  }
+  if (node === "match") {
+    return {
+      profile: state.profile,
+      blockers: hardBlockers(),
+      candidates: candidates.map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        archetype: candidate.archetype,
+        activity: candidate.activity,
+        training: candidate.training,
+        grooming: candidate.grooming,
+        monthlyCost: candidate.monthlyCost,
+        aiProfile: candidate.aiProfile,
+      })),
+    };
+  }
+  if (node === "daily") {
+    return { dog: dog.aiProfile, day: state.day, meters: state.meters, logs: currentLogs() };
+  }
+  if (node === "review") {
+    return { dog: dog.aiProfile, day: state.day, logs: state.logs };
+  }
+  if (node === "report") {
+    return { dog: dog.aiProfile, profile: state.profile, logs: state.logs };
+  }
+  return {};
 }
 
 function profileInsight() {
@@ -331,37 +394,37 @@ function profileInsight() {
   const budget = Number(profile.budget || 0);
   const patience = Number(profile.patience || 0);
   if (profile.housing === "not-allowed") {
-    return aiCard("AI 陪练 · 先解决硬性条件", "你目前的居住条件不允许养狗。这不是态度问题，而是能否长期稳定生活的问题。我们不会继续推你做选择，先看看有什么替代方案。");
+    return aiCard("AI 陪练 · 先解决硬性条件", "你目前的居住条件不允许养狗。这不是态度问题，而是能否长期稳定生活的问题。我们不会继续推你做选择，先看看有什么替代方案。", "profile");
   }
   if (profile.household === "object") {
-    return aiCard("AI 陪练 · 同住者张力", "家里有人明确反对养狗。共同生活空间的决定，需要一起形成可执行的规则。建议先把顾虑写清楚，而不是用喜欢去说服。");
+    return aiCard("AI 陪练 · 同住者张力", "家里有人明确反对养狗。共同生活空间的决定，需要一起形成可执行的规则。建议先把顾虑写清楚，而不是用喜欢去说服。", "profile");
   }
   if (profile.allergy === "serious") {
-    return aiCard("AI 陪练 · 健康优先", "家里有明确严重过敏。这类情况不适合通过虚拟喂养来试，需要先咨询专业意见。");
+    return aiCard("AI 陪练 · 健康优先", "家里有明确严重过敏。这类情况不适合通过虚拟喂养来试，需要先咨询专业意见。", "profile");
   }
   if (activity <= 1 && time >= 120) {
-    return aiCard("AI 陪练 · 需要确认", "你愿意投入时间，但运动习惯较弱。重点是：这些时间能否稳定用于外出，而不是留在家里陪伴。");
+    return aiCard("AI 陪练 · 需要确认", "你愿意投入时间，但运动习惯较弱。重点是：这些时间能否稳定用于外出，而不是留在家里陪伴。", "profile");
   }
   if (patience >= 3 && time <= 60) {
-    return aiCard("AI 陪练 · 时间张力", "你愿意训练和清理，但工作日时间偏紧。我们会在后面重点看：你能否在疲惫时仍然坚持核心照护。");
+    return aiCard("AI 陪练 · 时间张力", "你愿意训练和清理，但工作日时间偏紧。我们会在后面重点看：你能否在疲惫时仍然坚持核心照护。", "profile");
   }
   if (budget < 900) {
-    return aiCard("AI 陪练 · 预算压力", "你的稳定预算偏低。养狗不只是食品用品，还包含体检、疫苗、驱虫和突发医疗。建议先准备 3 个月应急医疗预算。");
+    return aiCard("AI 陪练 · 预算压力", "你的稳定预算偏低。养狗不只是食品用品，还包含体检、疫苗、驱虫和突发医疗。建议先准备 3 个月应急医疗预算。", "profile");
   }
   if (activity >= 3 && time <= 60) {
-    return aiCard("AI 陪练 · 生活节奏冲突", "你自己运动较多，但工作日能分给狗的时间偏少。我们会在候选匹配时特别关注这一点。");
+    return aiCard("AI 陪练 · 生活节奏冲突", "你自己运动较多，但工作日能分给狗的时间偏少。我们会在候选匹配时特别关注这一点。", "profile");
   }
-  return aiCard("AI 陪练 · 档案确认", "你的回答没有明显冲突。接下来我们不会只给你一个分数，而是把这些信息变成可验证的照护任务。");
+  return aiCard("AI 陪练 · 档案确认", "你的回答没有明显冲突。接下来我们不会只给你一个分数，而是把这些信息变成可验证的照护任务。", "profile");
 }
 
 function matchInsight(ranked, blockers) {
   if (blockers.length) {
-    return aiCard("AI 陪练 · 匹配前的提醒", "我先暂停推荐。有硬性条件没有满足时，候选犬型只是信息，不是行动建议。");
+    return aiCard("AI 陪练 · 匹配前的提醒", "我先暂停推荐。有硬性条件没有满足时，候选犬型只是信息，不是行动建议。", "match");
   }
   const best = ranked[0];
   const second = ranked[1];
   if (!second) return "";
-  return aiCard("AI 陪练 · 匹配解读", `我更倾向 ${best.name}，因为它的活动、训练和预算节奏更贴近你的生活。${second.name} 可以作为观察对象，但请在体验中特别留意它最容易造成负担的地方。`);
+  return aiCard("AI 陪练 · 匹配解读", `我更倾向 ${best.name}，因为它的活动、训练和预算节奏更贴近你的生活。${second.name} 可以作为观察对象，但请在体验中特别留意它最容易造成负担的地方。`, "match");
 }
 
 function renderMatch() {
@@ -383,6 +446,7 @@ function renderMatch() {
       .map((candidate, index) => {
         const score = matchCandidate(candidate);
         return `<section class="card candidate ${index === 0 && !blockers.length ? "recommended" : ""}">
+          <img class="dog-photo" src="${candidate.image}" alt="${candidate.name}的示意图" />
           <div class="row between">
             <div><h3>${candidate.emoji} ${candidate.name}</h3><p class="small">${candidate.age} · ${candidate.archetype}</p></div>
             <span class="pill">${index === 0 && !blockers.length ? "优先" : "候选"}</span>
@@ -594,24 +658,24 @@ function dailyInsight(tasks) {
   const lowMeters = Object.entries(state.meters).filter(([key, value]) => value < 40);
   const day = state.day;
   if (day === 4) {
-    return aiCard("AI 陪练 · 今天观察什么", "今天多了一项晚间外出。它不是惩罚，而是检验你忙碌时的真实节奏。请留意你会把它放在哪个位置。");
+    return aiCard("AI 陪练 · 今天观察什么", "今天多了一项晚间外出。它不是惩罚，而是检验你忙碌时的真实节奏。请留意你会把它放在哪个位置。", "daily");
   }
   if (day === 7) {
-    return aiCard("AI 陪练 · 第一周复盘", "今天不是继续叠加任务，而是看哪些负担反复出现。复盘后可以调整时间或换候选。");
+    return aiCard("AI 陪练 · 第一周复盘", "今天不是继续叠加任务，而是看哪些负担反复出现。复盘后可以调整时间或换候选。", "daily");
   }
   if (day === 11) {
-    return aiCard("AI 陪练 · 支持系统", "今天要检查的不是你愿意付出多少，而是当你不在时，是否有人或服务能接住它。");
+    return aiCard("AI 陪练 · 支持系统", "今天要检查的不是你愿意付出多少，而是当你不在时，是否有人或服务能接住它。", "daily");
   }
   if (!undone.length) {
-    return aiCard("AI 陪练 · 今日收束", "今天核心照护已记录。请再看一下实际用时和感受，然后就可以结束今天。");
+    return aiCard("AI 陪练 · 今日收束", "今天核心照护已记录。请再看一下实际用时和感受，然后就可以结束今天。", "daily");
   }
   if (lowMeters.length) {
     const labelMap = { food: "饮食", activity: "活动", happiness: "心情", clean: "环境" };
     const labels = lowMeters.map(([key]) => labelMap[key]).join("、");
-    return aiCard("AI 陪练 · 优先处理", `今天先不要追全部任务。${labels} 低于安全线，建议从最容易恢复状态的一项开始。`);
+    return aiCard("AI 陪练 · 优先处理", `今天先不要追全部任务。${labels} 低于安全线，建议从最容易恢复状态的一项开始。`, "daily");
   }
   const first = undone[0];
-  return aiCard("AI 陪练 · 今日重点", `先完成 ${first.title}。不要把它当成打卡，而是观察这个时段是否真的适合安排。`);
+  return aiCard("AI 陪练 · 今日重点", `先完成 ${first.title}。不要把它当成打卡，而是观察这个时段是否真的适合安排。`, "daily");
 }
 
 function analysis() {
@@ -686,15 +750,15 @@ function reportAdvice(result, pause, change) {
 
 function reportInsight(result, pause, change) {
   if (pause) {
-    return aiCard("AI 陪练 · 报告解读", "我不会继续推动你做选择。现在的问题是条件，不是热情。虚拟喂养只能帮你更清楚地看到代价。");
+    return aiCard("AI 陪练 · 报告解读", "我不会继续推动你做选择。现在的问题是条件，不是热情。虚拟喂养只能帮你更清楚地看到代价。", "report");
   }
   if (change) {
-    return aiCard("AI 陪练 · 报告解读", `${result.best.name} 的节奏可能更贴合你的生活。这不是失败，而是预养帮你发现了更现实的匹配。`);
+    return aiCard("AI 陪练 · 报告解读", `${result.best.name} 的节奏可能更贴合你的生活。这不是失败，而是预养帮你发现了更现实的匹配。`, "report");
   }
   if (result.hard.length >= 5) {
-    return aiCard("AI 陪练 · 报告解读", "你完成了不少任务，但吃力次数偏高。请优先判断这些负担是体力、时间、情绪还是费用问题。");
+    return aiCard("AI 陪练 · 报告解读", "你完成了不少任务，但吃力次数偏高。请优先判断这些负担是体力、时间、情绪还是费用问题。", "report");
   }
-  return aiCard("AI 陪练 · 报告解读", "目前的数据支持你继续了解这类狗。但请记住，个体差异仍然很大，最终要看真实接触。");
+  return aiCard("AI 陪练 · 报告解读", "目前的数据支持你继续了解这类狗。但请记住，个体差异仍然很大，最终要看真实接触。", "report");
 }
 
 function startGame(dogId) {
@@ -810,7 +874,7 @@ function showReview(advanceAfterClose = false) {
     <p class="eyebrow">Day 7 Review</p>
     <h3 id="modal-title">第一周复盘</h3>
     <p class="small">这一步不是打分，而是找重复出现的问题。</p>
-    ${aiCard("AI 陪练 · 复盘视角", result.hard.length >= 3 ? "你的吃力记录已经成模式。先把最重复的那个时段找出来，再决定是调整时间还是换候选。" : "目前负担还可控。请继续观察第二周，重点看第一周的问题是否真的被解决。")}
+    ${aiCard("AI 陪练 · 复盘视角", result.hard.length >= 3 ? "你的吃力记录已经成模式。先把最重复的那个时段找出来，再决定是调整时间还是换候选。" : "目前负担还可控。请继续观察第二周，重点看第一周的问题是否真的被解决。", "review")}
     <ul class="evidence" style="margin-top:12px">
       <li>完成 ${result.done.length} 项，未完成 ${result.missed.length} 项。</li>
       <li>吃力记录 ${result.hard.length} 项。</li>
@@ -928,6 +992,10 @@ document.addEventListener("click", (event) => {
   if (target.dataset.profile) {
     state.profile[target.dataset.profile] = target.dataset.value;
     render();
+    return;
+  }
+  if (target.dataset.aiNode) {
+    runAiNode(target.dataset.aiNode);
     return;
   }
   if (target.dataset.selectDog) {

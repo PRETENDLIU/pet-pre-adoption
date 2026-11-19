@@ -31,6 +31,19 @@ npx serve .
 
 https://bespoke-malasada-7ff200.netlify.app
 
+## AI 分析
+
+应用内置五个分析节点：生活档案、候选匹配、每日照护、中期复盘、最终报告。前端会把当前用户数据发给 `/api/ai`，由 Netlify Function 调用 OpenAI。
+
+在 Netlify 环境变量中配置：
+
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+未配置 API Key 时，应用仍可运行，并自动退回到本地规则建议。
+
 ## Netlify 发布
 
 项目是纯静态站，`netlify.toml` 已配置发布目录为当前目录。可在 Netlify 中连接 GitHub 仓库后自动部署，或使用：

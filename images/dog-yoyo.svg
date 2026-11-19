@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg-yoyo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3d8"/>
+      <stop offset="1" stop-color="#ffe0b2"/>
+    </linearGradient>
+    <linearGradient id="fur-yoyo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8d9a7"/>
+      <stop offset="1" stop-color="#e2a45e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="80" fill="url(#bg-yoyo)"/>
+  <circle cx="256" cy="180" r="180" fill="#fff8ec"/>
+  <path d="M148 158c0-35 24-59 55-59s55 24 55 59-24 49-55 49-55-14-55-49z" fill="#c88249"/>
+  <path d="M364 158c0-35-24-59-55-59s-55 24-55 59 24 49 55 49 55-14 55-49z" fill="#c88249"/>
+  <ellipse cx="256" cy="266" rx="165" ry="152" fill="url(#fur-yoyo)"/>
+  <path d="M105 372c34 52 81 78 151 78s117-26 151-78c-19 55-72 83-151 83s-132-28-151-83z" fill="#e8ab68"/>
+  <ellipse cx="185" cy="228" rx="16" ry="22" fill="#2b2118"/>
+  <ellipse cx="327" cy="228" rx="16" ry="22" fill="#2b2118"/>
+  <ellipse cx="256" cy="286" rx="38" ry="27" fill="#2b2118"/>
+  <path d="M199 341c26 34 88 34 114 0" stroke="#2b2118" stroke-width="11" fill="none" stroke-linecap="round"/>
+  <path d="M197 452h118a24 24 0 0 1 0 48H197a24 24 0 0 1 0-48z" fill="#ef5f4c"/>
+  <circle cx="312" cy="476" r="13" fill="#ffce67"/>
+</svg>
