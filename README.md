@@ -25,6 +25,12 @@
 npx serve .
 ```
 
+## 线上地址
+
+当前已发布到 Netlify：
+
+https://verdant-biscochitos-7e32eb.netlify.app
+
 ## Netlify 发布
 
 项目是纯静态站，`netlify.toml` 已配置发布目录为当前目录。可在 Netlify 中连接 GitHub 仓库后自动部署，或使用：
