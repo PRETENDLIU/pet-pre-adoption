@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fff8ec" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="预养计划：先用 14 天模拟照顾一只候选狗，再判断自己适合养什么狗。" />
+    <title>预养计划 · 14 天狗狗适配模拟</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="phone-shell" id="app">
+      <header class="app-header">
+        <div class="brand" id="brand">
+          <span class="brand-mark">预</span>
+          <span>预养计划</span>
+        </div>
+        <div class="header-meta" id="header-meta"></div>
+      </header>
+      <main class="view" id="view" tabindex="-1"></main>
+      <nav class="tabbar" id="tabbar" aria-label="主导航"></nav>
+      <div class="modal-backdrop" id="modal-backdrop" hidden>
+        <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></section>
+      </div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

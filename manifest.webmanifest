@@ -1,0 +1,18 @@
+{
+  "name": "预养计划 · 14 天狗狗适配模拟",
+  "short_name": "预养计划",
+  "description": "先模拟照顾 14 天，再判断自己适合养什么狗。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff8ec",
+  "theme_color": "#fff8ec",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
