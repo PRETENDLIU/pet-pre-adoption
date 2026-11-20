@@ -152,6 +152,8 @@ function createInitialState() {
     logs: {},
     events: {},
     ai: {},
+    recommendedCandidates: [],
+    recommendation: null,
   };
 }
 
@@ -247,7 +249,7 @@ function renderIntro() {
       <h2>你会经历什么</h2>
       <div class="feature-grid">
         <div class="feature"><strong>生活档案</strong><span>时间、预算、住房、同住者和耐心</span></div>
-        <div class="feature"><strong>候选犬型</strong><span>3 个可比较的照护画像</span></div>
+        <div class="feature"><strong>候选犬型</strong><span>AI 根据档案生成照护画像</span></div>
         <div class="feature"><strong>每日照护</strong><span>散步、喂食、训练、清洁、陪伴</span></div>
         <div class="feature"><strong>适配报告</strong><span>只给证据和建议，不发分数</span></div>
       </div>
@@ -293,6 +295,97 @@ function hardBlockers() {
   if (state.profile.household === "object") blockers.push("同住者明确反对养狗。");
   if (state.profile.allergy === "serious") blockers.push("家里有明确严重过敏。");
   return blockers;
+}
+
+function getCandidates() {
+  return state.recommendedCandidates?.length ? state.recommendedCandidates : candidates;
+}
+
+function profileSignature() {
+  return JSON.stringify(state.profile);
+}
+
+function enterMatch() {
+  state.screen = "match";
+  state.dogId = null;
+  state.recommendedCandidates = [];
+  state.recommendation = { status: "loading", profileSignature: profileSignature() };
+  render();
+  requestAiRecommendation();
+}
+
+async function requestAiRecommendation() {
+  const signature = profileSignature();
+  state.recommendedCandidates = [];
+  state.recommendation = { status: "loading", profileSignature: signature };
+  render();
+  try {
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        node: "recommend",
+        payload: { profile: state.profile, blockers: hardBlockers() },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.text) throw new Error(data.error || "AI 候选生成失败");
+    if (state.screen !== "match" || profileSignature() !== signature) return;
+    state.recommendedCandidates = normalizeAiCandidates(data.candidates);
+    state.recommendation = { status: "ready", profileSignature: signature, summary: data.text };
+    state.ai.match = { status: "ready", text: data.text };
+  } catch (error) {
+    if (state.screen !== "match" || profileSignature() !== signature) return;
+    state.recommendation = { status: "error", profileSignature: signature, text: `AI 候选生成暂不可用：${error.message}` };
+  }
+  render();
+}
+
+function normalizeAiCandidates(rawCandidates) {
+  if (!Array.isArray(rawCandidates)) return [];
+  return rawCandidates.slice(0, 3).map((candidate, index) => {
+    const activity = clampInteger(candidate.activity, 1, 4, 2);
+    const training = clampInteger(candidate.training, 1, 4, 2);
+    const grooming = clampInteger(candidate.grooming, 1, 4, 2);
+    const independence = clampInteger(candidate.independence, 1, 4, 3);
+    const monthlyCost = clampInteger(candidate.monthlyCost, 300, 4000, 700);
+    const idealTime = clampInteger(candidate.idealTime, 30, 240, 60);
+    return {
+      id: `ai-${index + 1}`,
+      name: cleanAiText(candidate.name, 18) || `候选 ${index + 1}`,
+      age: cleanAiText(candidate.age, 24) || "具体年龄待确认",
+      archetype: cleanAiText(candidate.archetype, 40) || "AI 推荐照护画像",
+      emoji: cleanAiText(candidate.emoji, 4) || "🐾",
+      activity,
+      training,
+      grooming,
+      independence,
+      monthlyCost,
+      idealTime,
+      image: imageForAiCandidate(activity),
+      aiProfile: cleanAiText(candidate.aiProfile, 180) || cleanAiText(candidate.description, 180),
+      description: cleanAiText(candidate.description, 180) || "这是一个根据你的生活档案生成的照护画像。",
+      why: cleanAiText(candidate.why, 180),
+      watchouts: Array.isArray(candidate.watchouts) ? candidate.watchouts.slice(0, 3).map((item) => cleanAiText(item, 120)).filter(Boolean) : [],
+    };
+  });
+}
+
+function cleanAiText(value, maxLength) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, maxLength) : "";
+}
+
+function clampInteger(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(number)));
+}
+
+function imageForAiCandidate(activity) {
+  if (activity <= 2) return candidates[0].image;
+  if (activity === 3) return candidates[1].image;
+  return candidates[2].image;
 }
 
 function matchCandidate(candidate) {
@@ -361,7 +454,7 @@ function buildAiPayload(node) {
     return {
       profile: state.profile,
       blockers: hardBlockers(),
-      candidates: candidates.map((candidate) => ({
+      candidates: getCandidates().map((candidate) => ({
         id: candidate.id,
         name: candidate.name,
         archetype: candidate.archetype,
@@ -418,6 +511,16 @@ function profileInsight() {
 }
 
 function matchInsight(ranked, blockers) {
+  const recommendation = state.recommendation;
+  if (recommendation?.status === "loading") {
+    return aiCard("AI 陪练 · 正在生成候选", "我正在把你的档案转成更具体的照护画像和结论。请稍等，不要按想象填写。", null);
+  }
+  if (recommendation?.status === "error") {
+    return aiCard("AI 陪练 · 使用基础候选", `${recommendation.text} 先用基础照护画像继续，你仍然可以完成 14 天记录。`, null);
+  }
+  if (recommendation?.summary) {
+    return aiCard("AI 陪练 · 档案结论", recommendation.summary, "match");
+  }
   if (blockers.length) {
     return aiCard("AI 陪练 · 匹配前的提醒", "我先暂停推荐。有硬性条件没有满足时，候选犬型只是信息，不是行动建议。", "match");
   }
@@ -429,12 +532,12 @@ function matchInsight(ranked, blockers) {
 
 function renderMatch() {
   const blockers = hardBlockers();
-  const ranked = [...candidates].sort((a, b) => matchCandidate(b) - matchCandidate(a));
+  const ranked = [...getCandidates()].sort((a, b) => matchCandidate(b) - matchCandidate(a));
   return `
     <section class="card flat dashed">
       <p class="eyebrow">Match</p>
-      <h2>三个候选犬型</h2>
-      <p class="small">候选是照护画像，不代表每只真实狗都一定如此。最终要看具体个体。</p>
+      <h2>AI 定制候选</h2>
+      <p class="small">这些候选由你的生活档案生成，是照护画像，不代表每只真实狗都一定如此。最终要看具体个体。</p>
     </section>
     ${blockers.length ? `<section class="card" style="border-color:var(--coral);background:#fff0eb">
       <h3>先解决硬性条件</h3>
@@ -446,30 +549,33 @@ function renderMatch() {
       .map((candidate, index) => {
         const score = matchCandidate(candidate);
         return `<section class="card candidate ${index === 0 && !blockers.length ? "recommended" : ""}">
-          <img class="dog-photo" src="${candidate.image}" alt="${candidate.name}的示意图" />
+          <img class="dog-photo" src="${candidate.image}" alt="${escapeHtml(candidate.name)}的示意图" />
           <div class="row between">
-            <div><h3>${candidate.emoji} ${candidate.name}</h3><p class="small">${candidate.age} · ${candidate.archetype}</p></div>
+            <div><h3>${escapeHtml(candidate.emoji)} ${escapeHtml(candidate.name)}</h3><p class="small">${escapeHtml(candidate.age)} · ${escapeHtml(candidate.archetype)}</p></div>
             <span class="pill">${index === 0 && !blockers.length ? "优先" : "候选"}</span>
           </div>
           <div class="match-score" aria-label="匹配度 ${score}/5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= score ? "on" : ""}"></i>`).join("")}</div>
-          <p class="small">${candidate.description}</p>
+          <p class="small">${escapeHtml(candidate.description)}</p>
+          ${candidate.why ? `<p class="small" style="margin-top:7px"><b>为什么给你这个候选：</b>${escapeHtml(candidate.why)}</p>` : ""}
+          ${candidate.watchouts?.length ? `<ul class="evidence" style="margin-top:8px">${candidate.watchouts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
           <div class="need-grid">
             <div class="need"><b>活动</b>${"●".repeat(candidate.activity)}${"○".repeat(4 - candidate.activity)}</div>
             <div class="need"><b>训练</b>${"●".repeat(candidate.training)}${"○".repeat(4 - candidate.training)}</div>
             <div class="need"><b>清洁</b>${"●".repeat(candidate.grooming)}${"○".repeat(4 - candidate.grooming)}</div>
             <div class="need"><b>月预算</b>约 ${candidate.monthlyCost} 元</div>
           </div>
-          <ul class="evidence">${candidateReasons(candidate).map((reason) => `<li>${reason}</li>`).join("")}</ul>
-          <button class="button teal block" style="margin-top:13px" data-select-dog="${candidate.id}">预养 ${candidate.name}</button>
+          <ul class="evidence">${candidateReasons(candidate).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
+          <button class="button teal block" style="margin-top:13px" data-select-dog="${escapeHtml(candidate.id)}">预养 ${escapeHtml(candidate.name)}</button>
         </section>`;
       })
       .join("")}
+    <button class="button ghost block" style="margin-top:10px" data-action="regenerate-recommendation">重新按档案生成候选</button>
     <button class="button ghost block" style="margin-top:14px" data-action="restart-profile">重新填写档案</button>
   `;
 }
 
 function getDog() {
-  return candidates.find((candidate) => candidate.id === state.dogId) || candidates[0];
+  return getCandidates().find((candidate) => candidate.id === state.dogId) || getCandidates()[0];
 }
 
 function getDailyTasks() {
@@ -686,7 +792,7 @@ function analysis() {
   const averageMinutes = done.length ? Math.round(done.reduce((sum, log) => sum + Number(log.minutes || 0), 0) / done.length) : 0;
   const blockers = hardBlockers();
   const dog = getDog();
-  const best = [...candidates].sort((a, b) => matchCandidate(b) - matchCandidate(a))[0];
+  const best = [...getCandidates()].sort((a, b) => matchCandidate(b) - matchCandidate(a))[0];
   const confidence = allLogs.length >= 10 && !blockers.length ? "中" : allLogs.length >= 6 ? "低到中" : "不足";
   return { allLogs, done, missed, hard, averageMinutes, blockers, dog, best, confidence };
 }
@@ -962,6 +1068,9 @@ document.addEventListener("click", (event) => {
     state.screen = "profile";
     state.profileStep = 0;
     state.profile = {};
+    state.recommendedCandidates = [];
+    state.recommendation = null;
+    state.ai = {};
     render();
     return;
   }
@@ -985,8 +1094,15 @@ document.addEventListener("click", (event) => {
   }
   if (target.dataset.action === "profile-next") {
     if (state.profileStep < profileQuestions.length - 1) state.profileStep += 1;
-    else state.screen = "match";
+    else {
+      enterMatch();
+      return;
+    }
     render();
+    return;
+  }
+  if (target.dataset.action === "regenerate-recommendation") {
+    requestAiRecommendation();
     return;
   }
   if (target.dataset.profile) {
